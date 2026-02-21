@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum AuthAction {
+  REGISTER
+  OTP_GENERATED
+  OTP_RESENT
+  OTP_VERIFIED
+  OTP_FAILED
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  REFRESH_SUCCESS
+  REFRESH_FAILED
+  LOGOUT_SUCCESS
+  LOGOUT_FAILED
+  PASSWORD_CHANGED
+}
+
+model User {
+  id            String         @id @default(uuid()) @db.Uuid
+  email         String         @unique @db.VarChar(255)
+  phone         String         @unique @db.VarChar(20)
+  passwordHash  String         @db.VarChar(255)
+  role          Role           @default(USER)
+  status        UserStatus     @default(PENDING)
+  isVerified    Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  refreshTokens RefreshToken[]
+  authLogs      AuthLog[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  token     String   @unique @db.Text
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model AuthLog {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String?    @db.Uuid
+  action    AuthAction
+  success   Boolean
+  ipAddress String?    @db.VarChar(64)
+  userAgent String?    @db.VarChar(255)
+  metadata  Json?
+  createdAt DateTime   @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@map("auth_logs")
+}
